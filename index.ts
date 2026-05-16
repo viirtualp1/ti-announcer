@@ -72,7 +72,7 @@ async function sendTelegramMessage(options: TelegramMessageOptions) {
   }
 }
 
-async function sendErrorAlert(stage: string, error: unknown): Promise<void> {
+async function sendErrorAlert(stage: string, error: unknown) {
   const msg = error instanceof Error ? error.message : String(error);
   console.error(`[Error] ${stage}: ${msg}`);
   try {
@@ -87,7 +87,7 @@ async function sendErrorAlert(stage: string, error: unknown): Promise<void> {
   }
 }
 
-async function sendTicketAlert(title: string, gid: string): Promise<void> {
+async function sendTicketAlert(title: string, gid: string) {
   const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${gid}`;
   await sendTelegramMessage({
     text:
@@ -123,8 +123,13 @@ async function checkForTickets(): Promise<void> {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} ${response.statusText}`);
     }
+
     const data = (await response.json()) as { events?: SteamEvent[] };
     events = data.events ?? [];
+    if (events.length === 0) {
+      throw new Error("Response returned an empty events array");
+    }
+
     console.log(`[Steam] Fetched ${events.length} events.`);
   } catch (error) {
     await sendErrorAlert("fetch_steam_api", error);
@@ -145,7 +150,9 @@ async function checkForTickets(): Promise<void> {
       const posttime = Number(event.announcement_body?.posttime);
       const gid = event.clan_event_gid;
 
-      if (!posttime) continue;
+      if (!posttime) {
+        continue;
+      }
 
       // On the very first run (no state) fall back to the time-window guard.
       // On subsequent runs, alert on anything newer than what we last saw.
