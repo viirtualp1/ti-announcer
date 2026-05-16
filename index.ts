@@ -30,7 +30,7 @@ async function saveSeenNews(seenIds: string[]) {
   await fs.writeFile(DB_FILE, JSON.stringify(seenIds, null, 2));
 }
 
-async function sendTelegramAlert(title: string, gid: string) {
+async function sendTelegramAlert(gid: string) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) {
     console.error("Error: TELEGRAM_TOKEN or CHAT_ID is not set");
     return;
@@ -38,9 +38,7 @@ async function sendTelegramAlert(title: string, gid: string) {
 
   const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${gid}`;
   const text =
-    `🚨 *TICKETS ON THE INTERNATIONAL 2026?*\n\n` +
-    `*Title:* ${title}\n\n` +
-    `[OPEN announcement_body](${link})`;
+    `🚨 *NEW ANNOUNCEMENT ABOUT INTERNATIONAL*\n\n` + `[OPEN](${link})`;
 
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
 
@@ -69,8 +67,7 @@ async function checkForTickets() {
         const gid = event.clan_event_gid;
 
         if (!seenIds.includes(gid)) {
-          const title = event.announcement_body?.name || "";
-          await sendTelegramAlert(title, gid);
+          await sendTelegramAlert(gid);
           seenIds.push(gid);
           stateUpdated = true;
         }
