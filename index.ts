@@ -9,11 +9,10 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
 interface SteamEvent {
-  clan_event_gid: string;
+  gid: string;
   event_type: number;
   announcement_body: {
-    name: string;
-    body: string;
+    headline: string;
   };
 }
 
@@ -30,7 +29,7 @@ async function saveSeenNews(seenIds: string[]) {
   await fs.writeFile(DB_FILE, JSON.stringify(seenIds, null, 2));
 }
 
-async function sendTelegramAlert(gid: string) {
+async function sendTelegramAlert(title: string, gid: string) {
   if (!TELEGRAM_TOKEN || !CHAT_ID) {
     console.error("Error: TELEGRAM_TOKEN or CHAT_ID is not set");
     return;
@@ -38,7 +37,9 @@ async function sendTelegramAlert(gid: string) {
 
   const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${gid}`;
   const text =
-    `🚨 *NEW ANNOUNCEMENT ABOUT INTERNATIONAL*\n\n` + `[OPEN](${link})`;
+    `🚨 *NEW ANNOUNCEMENT ABOUT INTERNATIONAL*\n\n` +
+    `*${title}*\n\n` +
+    `[OPEN](${link})`;
 
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
 
@@ -64,11 +65,11 @@ async function checkForTickets() {
 
     for (const event of events) {
       if (event.event_type === INTERNATION_EVENT_TYPE) {
-        const gid = event.clan_event_gid;
+        const title = event.announcement_body?.headline || "";
 
-        if (!seenIds.includes(gid)) {
-          await sendTelegramAlert(gid);
-          seenIds.push(gid);
+        if (event.gid && !seenIds.includes(event.gid)) {
+          await sendTelegramAlert(title, event.gid);
+          seenIds.push(event.gid);
           stateUpdated = true;
         }
       }
