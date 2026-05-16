@@ -39,7 +39,11 @@ function loadState(): AppState {
   } catch {
     // corrupted file — start fresh
   }
-  return { lastSeenTime: null, lastHeartbeat: null };
+
+  return {
+    lastSeenTime: null,
+    lastHeartbeat: null,
+  };
 }
 
 function saveState(state: AppState) {
