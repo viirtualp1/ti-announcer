@@ -2,13 +2,11 @@ import fs from "fs/promises";
 
 const APP_ID = 570;
 const API_URL = `https://store.steampowered.com/events/ajaxgetpartnereventspageable/?appid=${APP_ID}&offset=0&count=10&l=russian`;
-
 const DB_FILE = "./last_news.json";
 
-const TELEGRAM_TOKEN = "8847430512:AAGD3RBhybSeJb-YLp-vxoL0J_ax6Z9VNzs";
-const CHAT_ID = "344165905";
-
-const STEAM_EVENT_TYPE_THE_INTERNATIONAL = 28;
+const INTERNATION_EVENT_TYPE = 28;
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
 
 interface SteamEvent {
   clan_event_gid: string;
@@ -33,35 +31,31 @@ async function saveSeenNews(seenIds: string[]) {
 }
 
 async function sendTelegramAlert(title: string, gid: string) {
-  const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${gid}`;
+  if (!TELEGRAM_TOKEN || !CHAT_ID) {
+    console.error("Error: TELEGRAM_TOKEN or CHAT_ID is not set");
+    return;
+  }
 
+  const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${gid}`;
   const text =
-    `🚨 *TICKETS FOR THE INTERNATIONAL 2026?*\n\n` +
+    `🚨 *TICKETS ON THE INTERNATIONAL 2026?*\n\n` +
     `*Title:* ${title}\n\n` +
-    `[Open announcement](${link})`;
+    `[OPEN announcement_body](${link})`;
 
   const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
 
-  try {
-    await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text: text,
-        parse_mode: "Markdown",
-      }),
-    });
-
-    console.log(`Уведомление отправлено: ${title}`);
-  } catch (err) {
-    console.error("Ошибка отправки в Telegram:", err);
-  }
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: text,
+      parse_mode: "Markdown",
+    }),
+  });
 }
 
 async function checkForTickets() {
-  console.log("Проверяем Steam Events API...");
-
   try {
     const response = await fetch(API_URL);
     const data = await response.json();
@@ -71,7 +65,7 @@ async function checkForTickets() {
     let stateUpdated = false;
 
     for (const event of events) {
-      if (event.event_type === STEAM_EVENT_TYPE_THE_INTERNATIONAL) {
+      if (event.event_type === INTERNATION_EVENT_TYPE) {
         const gid = event.clan_event_gid;
 
         if (!seenIds.includes(gid)) {
@@ -87,9 +81,9 @@ async function checkForTickets() {
       await saveSeenNews(seenIds);
     }
   } catch (error) {
-    console.error("Ошибка при запросе к Steam API:", error);
+    console.error(error);
+    process.exit(1);
   }
 }
 
-setInterval(checkForTickets, 5 * 60 * 1000);
 checkForTickets();
