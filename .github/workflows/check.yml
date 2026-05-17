@@ -1,19 +1,18 @@
 name: Check TI Tickets
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: "*/15 * * * *"
-  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-permissions:
-  contents: write
-
 jobs:
   check-news:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -33,10 +32,8 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: npx tsx index.ts
 
-      - name: Persist state
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add state.json
-          git diff --staged --quiet || git commit -m "chore: update state [skip ci]"
-          git push
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update state.json [skip ci]"
+          file_pattern: "state.json"
