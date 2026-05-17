@@ -8,6 +8,9 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const CHAT_ID = process.env.CHAT_ID;
 
 const HEARTBEAT_INTERVAL = 24 * 60 * 60; // 24 hours
+const TIME_WINDOW_SECONDS = 15 * 60;
+
+const INTERNATIONAL_EVENT_TYPE = 28;
 
 interface SteamEvent {
   gid: string;
@@ -15,12 +18,12 @@ interface SteamEvent {
   announcement_body: {
     headline: string;
     body: string;
+    posttime: number;
   };
 }
 
 interface AppState {
   lastHeartbeat: number;
-  seenIds: string[];
 }
 
 async function loadState(): Promise<AppState> {
@@ -30,7 +33,6 @@ async function loadState(): Promise<AppState> {
   } catch {
     return {
       lastHeartbeat: 0,
-      seenIds: [],
     };
   }
 }
@@ -77,22 +79,29 @@ async function checkForTickets() {
     }
 
     for (const event of events) {
-      if (event.event_type === 28) {
-        if (!state.seenIds.includes(event.gid)) {
-          const title = event.announcement_body?.headline || "No title";
-          const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${event.gid}`;
+      if (event.event_type === INTERNATIONAL_EVENT_TYPE) {
+        const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${event.gid}`;
 
+        const posttime = Number(event.announcement_body?.posttime);
+        if (!posttime) {
           await sendTelegramAlert(
-            `🚨 *NEW THE INTERNATIONAL NEWS!*\n\n*Title:* ${title}\n\n[Open in Steam](${link})`,
+            `[Event] News skipped (posttime missing) :\n` +
+              `[Open in Steam](${link})`,
           );
-
-          state.seenIds.push(event.gid);
-          if (state.seenIds.length > 20) {
-            state.seenIds.shift();
-          }
-
-          stateUpdated = true;
+          continue;
         }
+
+        const isRecent = nowSeconds - posttime <= TIME_WINDOW_SECONDS;
+        if (!isRecent) {
+          continue;
+        }
+
+        const title = event.announcement_body?.headline || "No title";
+        await sendTelegramAlert(
+          `🚨 *NEW THE INTERNATIONAL NEWS!*\n\n*Title:* ${title}\n\n[Open in Steam](${link})`,
+        );
+
+        stateUpdated = true;
       }
     }
 
