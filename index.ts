@@ -9,12 +9,29 @@ const CHAT_ID = process.env.CHAT_ID;
 
 const HEARTBEAT_INTERVAL = 24 * 60 * 60; // 24 hours
 
-async function loadState() {
+interface SteamEvent {
+  gid: string;
+  event_type: number;
+  announcement_body: {
+    headline: string;
+    body: string;
+  };
+}
+
+interface AppState {
+  lastHeartbeat: number;
+  seenIds: string[];
+}
+
+async function loadState(): Promise<AppState> {
   try {
     const data = await fs.readFile(DB_FILE, "utf-8");
     return JSON.parse(data);
   } catch {
-    return { lastHeartbeat: 0, seenIds: [] };
+    return {
+      lastHeartbeat: 0,
+      seenIds: [],
+    };
   }
 }
 
@@ -49,9 +66,9 @@ async function checkForTickets() {
 
     const response = await fetch(API_URL);
     const data = await response.json();
-    const events = data.events || [];
-    const nowSeconds = Math.floor(Date.now() / 1000);
+    const events: SteamEvent[] = data.events || [];
 
+    const nowSeconds = Math.floor(Date.now() / 1000);
     if (nowSeconds - state.lastHeartbeat >= HEARTBEAT_INTERVAL) {
       await sendTelegramAlert(`💓 Script TI 2026 is running`);
       state.lastHeartbeat = nowSeconds;
@@ -61,17 +78,15 @@ async function checkForTickets() {
 
     for (const event of events) {
       if (event.event_type === 28) {
-        const gid = event.clan_event_gid;
-
-        if (!state.seenIds.includes(gid)) {
-          const title = event.announcement_body?.name || "No title";
-          const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${gid}`;
+        if (!state.seenIds.includes(event.gid)) {
+          const title = event.announcement_body?.headline || "No title";
+          const link = `https://store.steampowered.com/news/app/${APP_ID}/view/${event.gid}`;
 
           await sendTelegramAlert(
             `🚨 *NEW THE INTERNATIONAL NEWS!*\n\n*Title:* ${title}\n\n[Open in Steam](${link})`,
           );
 
-          state.seenIds.push(gid);
+          state.seenIds.push(event.gid);
           if (state.seenIds.length > 20) {
             state.seenIds.shift();
           }
